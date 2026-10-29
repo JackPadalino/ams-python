@@ -1,0 +1,6 @@
+{
+  "projects": {
+    "default": "buzzer-trivia-game",
+    "local": "demo-ams-python"
+  }
+}

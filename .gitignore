@@ -1,0 +1,11 @@
+node_modules
+dist
+public/pyodide
+.env.local
+.env.production.local
+service-account*.json
+students.csv
+*-debug.log
+.firebase
+.tools
+*-firebase-adminsdk-*.json

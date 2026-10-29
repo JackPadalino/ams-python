@@ -1,0 +1,51 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // Accounts are created by scripts/create-accounts.mjs (Admin SDK, which
+    // skips these rules). Students may only change their own preferences.
+    match /users/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow update: if signedIn() && request.auth.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['autoIndent', 'theme'])
+        && (!('autoIndent' in request.resource.data) || request.resource.data.autoIndent is bool)
+        && (!('theme' in request.resource.data) || request.resource.data.theme in ['light', 'dark', 'retro']);
+    }
+
+    match /files/{fileId} {
+      function myUsername() {
+        return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.username;
+      }
+
+      function validFile(data) {
+        return data.keys().hasOnly(['ownerUid', 'ownerUsername', 'name', 'code', 'createdAt', 'updatedAt'])
+          && data.name is string && data.name.size() > 0 && data.name.size() <= 50
+          && data.code is string && data.code.size() <= 100000;
+      }
+
+      // Anyone with a file's link (its random id) can open that one file.
+      // Listing files is limited to your own, so links can't be discovered.
+      allow get: if true;
+      allow list: if signedIn() && resource.data.ownerUid == request.auth.uid;
+
+      allow create: if signedIn()
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.ownerUsername == myUsername()
+        && validFile(request.resource.data);
+
+      allow update: if signedIn()
+        && resource.data.ownerUid == request.auth.uid
+        && request.resource.data.ownerUid == resource.data.ownerUid
+        && request.resource.data.ownerUsername == resource.data.ownerUsername
+        && request.resource.data.createdAt == resource.data.createdAt
+        && validFile(request.resource.data);
+
+      allow delete: if signedIn() && resource.data.ownerUid == request.auth.uid;
+    }
+  }
+}
